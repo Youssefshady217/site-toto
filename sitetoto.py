@@ -52,7 +52,7 @@ LOGO_PATH = "ETB_Real_Estate_Development.png"
 
 
 # =========================================================
-# ARABIC PDF
+# ARABIC
 # =========================================================
 
 def pdf_arabic(text):
@@ -68,16 +68,16 @@ def pdf_arabic(text):
 
 
 # =========================================================
-# GET FONT
+# FONT
 # =========================================================
 
 def get_pdf_font():
 
     fonts = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "C:/Windows/Fonts/arial.ttf",
-        "C:/Windows/Fonts/tahoma.ttf",
-        "/usr/share/fonts/truetype/msttcorefonts/Arial.ttf",
-        "/usr/share/fonts/truetype/msttcorefonts/arial.ttf"
+        "C:/Windows/Fonts/tahoma.ttf"
     ]
 
     for font in fonts:
@@ -128,7 +128,7 @@ def create_pdf(
         pdf.set_font(
             "Arabic",
             "",
-            11
+            10
         )
 
     else:
@@ -164,13 +164,6 @@ def create_pdf(
             14
         )
 
-        pdf.cell(
-            0,
-            8,
-            "ETB REAL ESTATE DEVELOPMENT",
-            align="C"
-        )
-
     else:
 
         pdf.set_font(
@@ -179,12 +172,12 @@ def create_pdf(
             14
         )
 
-        pdf.cell(
-            0,
-            8,
-            "ETB REAL ESTATE DEVELOPMENT",
-            align="C"
-        )
+    pdf.cell(
+        0,
+        8,
+        "ETB REAL ESTATE DEVELOPMENT",
+        align="C"
+    )
 
     pdf.ln(12)
 
@@ -200,14 +193,12 @@ def create_pdf(
             13
         )
 
-        title = pdf_arabic(
-            f"{report_title} - {material_name}"
-        )
-
         pdf.cell(
             0,
             8,
-            title,
+            pdf_arabic(
+                f"{report_title} - {material_name}"
+            ),
             align="C"
         )
 
@@ -229,7 +220,7 @@ def create_pdf(
     pdf.ln(10)
 
     # -----------------------------------------------------
-    # TABLE SETTINGS
+    # TABLE
     # -----------------------------------------------------
 
     if font_path:
@@ -248,6 +239,10 @@ def create_pdf(
             9
         )
 
+    # A4 = 210mm
+    # Margins = 10mm each
+    # Total = 190mm
+
     col_widths = [
         32,
         55,
@@ -265,7 +260,7 @@ def create_pdf(
     ]
 
     # -----------------------------------------------------
-    # TABLE HEADER
+    # HEADER
     # -----------------------------------------------------
 
     pdf.set_fill_color(
@@ -301,7 +296,7 @@ def create_pdf(
     pdf.ln()
 
     # -----------------------------------------------------
-    # TABLE DATA
+    # DATA
     # -----------------------------------------------------
 
     total_all = 0
@@ -372,7 +367,7 @@ def create_pdf(
         total_all += total
 
         # -------------------------------------------------
-        # DATE CELL
+        # DATE
         # -------------------------------------------------
 
         if font_path:
@@ -394,7 +389,7 @@ def create_pdf(
         )
 
         # -------------------------------------------------
-        # ITEM CELL
+        # ITEM
         # -------------------------------------------------
 
         if font_path:
@@ -416,8 +411,8 @@ def create_pdf(
         )
 
         # -------------------------------------------------
-        # QUANTITY CELL
-        # -----------------------------------------------------
+        # QUANTITY
+        # -------------------------------------------------
 
         pdf.cell(
             col_widths[2],
@@ -428,8 +423,8 @@ def create_pdf(
         )
 
         # -------------------------------------------------
-        # PRICE CELL
-        # -----------------------------------------------------
+        # PRICE
+        # -------------------------------------------------
 
         pdf.cell(
             col_widths[3],
@@ -440,8 +435,8 @@ def create_pdf(
         )
 
         # -------------------------------------------------
-        # TOTAL CELL
-        # -----------------------------------------------------
+        # TOTAL
+        # -------------------------------------------------
 
         pdf.cell(
             col_widths[4],
@@ -467,27 +462,29 @@ def create_pdf(
             12
         )
 
-        total_text = pdf_arabic(
-            f"إجمالي العمليات: {total_all:.2f}"
-        )
-
         pdf.cell(
             0,
             8,
-            total_text,
+            pdf_arabic(
+                f"إجمالي العمليات: {total_all:.2f}"
+            ),
             align="R"
         )
 
         pdf.ln(7)
 
-        count_text = pdf_arabic(
-            f"عدد العمليات: {len(data)}"
+        pdf.set_font(
+            "Arabic",
+            "",
+            10
         )
 
         pdf.cell(
             0,
             7,
-            count_text,
+            pdf_arabic(
+                f"عدد العمليات: {len(data)}"
+            ),
             align="R"
         )
 
@@ -515,13 +512,26 @@ def create_pdf(
             align="R"
         )
 
-    # -----------------------------------------------------
-    # RETURN PDF
-    # -----------------------------------------------------
+    # =====================================================
+    # VERY IMPORTANT
+    # =====================================================
+    # Convert PDF to real bytes
 
-    return bytes(
-        pdf.output()
-    )
+    pdf_bytes = pdf.output()
+
+    if isinstance(pdf_bytes, bytearray):
+
+        pdf_bytes = bytes(pdf_bytes)
+
+    elif isinstance(pdf_bytes, str):
+
+        pdf_bytes = pdf_bytes.encode("latin-1")
+
+    elif not isinstance(pdf_bytes, bytes):
+
+        pdf_bytes = bytes(pdf_bytes)
+
+    return pdf_bytes
 
 
 # =========================================================
@@ -535,7 +545,7 @@ def material_page(material_name):
     )
 
     # =====================================================
-    # INPUT TABLE
+    # ADD OPERATIONS
     # =====================================================
 
     st.subheader(
@@ -545,10 +555,6 @@ def material_page(material_name):
     input_key = (
         f"input_table_{material_name}"
     )
-
-    # -----------------------------------------------------
-    # FIRST TIME
-    # -----------------------------------------------------
 
     if input_key not in st.session_state:
 
@@ -576,7 +582,7 @@ def material_page(material_name):
         })
 
     # =====================================================
-    # INPUT EDITOR
+    # INPUT TABLE
     # =====================================================
 
     edited_df = st.data_editor(
@@ -622,14 +628,12 @@ def material_page(material_name):
         }
     )
 
-    # Save current table
-
     st.session_state[input_key] = (
         edited_df.copy()
     )
 
     # =====================================================
-    # CALCULATE CURRENT TOTAL
+    # CALCULATE
     # =====================================================
 
     edited_df["الكمية"] = pd.to_numeric(
@@ -670,13 +674,9 @@ def material_page(material_name):
 
         for _, row in edited_df.iterrows():
 
-            # ITEM
-
             item = str(
                 row["الصنف"]
             ).strip()
-
-            # QUANTITY
 
             try:
 
@@ -688,8 +688,6 @@ def material_page(material_name):
 
                 quantity = 0
 
-            # PRICE
-
             try:
 
                 price = float(
@@ -700,15 +698,11 @@ def material_page(material_name):
 
                 price = 0
 
-            # Skip empty rows
-
             if item == "":
                 continue
 
             if quantity <= 0:
                 continue
-
-            # DATE
 
             transaction_date = row[
                 "التاريخ"
@@ -728,14 +722,10 @@ def material_page(material_name):
                 "%Y-%m-%d"
             )
 
-            # TOTAL
-
             total = (
                 quantity *
                 price
             )
-
-            # INSERT
 
             cursor.execute(
                 """
@@ -764,42 +754,34 @@ def material_page(material_name):
 
         conn.commit()
 
-        # -------------------------------------------------
-        # SUCCESS
-        # -------------------------------------------------
-
         if rows_saved > 0:
 
             st.success(
                 f"تم حفظ {rows_saved} عملية بنجاح"
             )
 
-            # Reset table
+            st.session_state[input_key] = pd.DataFrame({
 
-            st.session_state[input_key] = (
-                pd.DataFrame({
+                "التاريخ": [
+                    date.today()
+                ],
 
-                    "التاريخ": [
-                        date.today()
-                    ],
+                "الصنف": [
+                    ""
+                ],
 
-                    "الصنف": [
-                        ""
-                    ],
+                "الكمية": [
+                    0.0
+                ],
 
-                    "الكمية": [
-                        0.0
-                    ],
+                "السعر": [
+                    0.0
+                ],
 
-                    "السعر": [
-                        0.0
-                    ],
-
-                    "الإجمالي": [
-                        0.0
-                    ]
-                })
-            )
+                "الإجمالي": [
+                    0.0
+                ]
+            })
 
             st.rerun()
 
@@ -821,12 +803,10 @@ def material_page(material_name):
 
     if st.button(
         "توليد PDF للعمليات الحالية",
-        key=f"current_pdf_{material_name}"
+        key=f"make_current_pdf_{material_name}"
     ):
 
         current_data = edited_df.copy()
-
-        # Clean item
 
         current_data["الصنف"] = (
             current_data["الصنف"]
@@ -835,13 +815,9 @@ def material_page(material_name):
             .str.strip()
         )
 
-        # Remove empty rows
-
         current_data = current_data[
             current_data["الصنف"] != ""
         ]
-
-        # Remove zero quantity
 
         current_data = current_data[
             current_data["الكمية"] > 0
@@ -855,45 +831,54 @@ def material_page(material_name):
 
         else:
 
-            # Recalculate
-
             current_data["الإجمالي"] = (
                 current_data["الكمية"]
                 *
                 current_data["السعر"]
             )
 
-            current_pdf = create_pdf(
+            pdf_data = create_pdf(
                 material_name,
                 current_data,
                 "تقرير العمليات الحالية"
             )
 
+            # Make absolutely sure
+            # it is bytes
+
+            pdf_data = bytes(
+                pdf_data
+            )
+
             st.session_state[
-                f"current_pdf_{material_name}"
-            ] = current_pdf
+                f"current_pdf_data_{material_name}"
+            ] = pdf_data
 
             st.success(
                 "تم إنشاء PDF للعمليات الحالية"
             )
 
-    # -----------------------------------------------------
+    # =====================================================
     # DOWNLOAD CURRENT PDF
-    # -----------------------------------------------------
+    # =====================================================
 
     current_pdf_key = (
-        f"current_pdf_{material_name}"
+        f"current_pdf_data_{material_name}"
     )
 
     if current_pdf_key in st.session_state:
 
+        current_pdf_data = (
+            st.session_state[
+                current_pdf_key
+            ]
+        )
+
         st.download_button(
 
-            "تحميل PDF للعمليات الحالية",
+            label="تحميل PDF للعمليات الحالية",
 
-            data=st.session_state[
-                current_pdf_key
-            ],
+            data=current_pdf_data,
 
             file_name=(
                 f"{material_name}_"
@@ -992,7 +977,7 @@ def material_page(material_name):
         )
 
         # =================================================
-        # DELETE SELECTED
+        # DELETE
         # =================================================
 
         if st.button(
@@ -1068,10 +1053,8 @@ def material_page(material_name):
 
         if st.button(
             "توليد PDF للمحفوظات",
-            key=f"saved_pdf_{material_name}"
+            key=f"make_saved_pdf_{material_name}"
         ):
-
-            # Take only needed columns
 
             pdf_saved_data = saved_df[
                 [
@@ -1083,7 +1066,7 @@ def material_page(material_name):
                 ]
             ].copy()
 
-            # Convert numbers
+            # Recalculate
 
             pdf_saved_data["الكمية"] = (
                 pd.to_numeric(
@@ -1101,15 +1084,11 @@ def material_page(material_name):
                 .fillna(0)
             )
 
-            # Recalculate total
-
             pdf_saved_data["الإجمالي"] = (
                 pdf_saved_data["الكمية"]
                 *
                 pdf_saved_data["السعر"]
             )
-
-            # Create PDF
 
             saved_pdf = create_pdf(
                 material_name,
@@ -1117,31 +1096,42 @@ def material_page(material_name):
                 "تقرير العمليات المحفوظة"
             )
 
+            # Make absolutely sure
+            # it is bytes
+
+            saved_pdf = bytes(
+                saved_pdf
+            )
+
             st.session_state[
-                f"saved_pdf_{material_name}"
+                f"saved_pdf_data_{material_name}"
             ] = saved_pdf
 
             st.success(
                 "تم إنشاء PDF للمحفوظات"
             )
 
-        # -------------------------------------------------
+        # =================================================
         # DOWNLOAD SAVED PDF
-        # -------------------------------------------------
+        # =================================================
 
         saved_pdf_key = (
-            f"saved_pdf_{material_name}"
+            f"saved_pdf_data_{material_name}"
         )
 
         if saved_pdf_key in st.session_state:
 
+            saved_pdf_data = (
+                st.session_state[
+                    saved_pdf_key
+                ]
+            )
+
             st.download_button(
 
-                "تحميل PDF للمحفوظات",
+                label="تحميل PDF للمحفوظات",
 
-                data=st.session_state[
-                    saved_pdf_key
-                ],
+                data=saved_pdf_data,
 
                 file_name=(
                     f"{material_name}_"
@@ -1181,7 +1171,7 @@ def material_page(material_name):
 
 
 # =========================================================
-# HOME
+# HOME PAGE
 # =========================================================
 
 if "selected_material" not in st.session_state:
