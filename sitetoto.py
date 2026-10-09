@@ -1,11 +1,12 @@
-import streamlit as st
+import os
 import sqlite3
-import pandas as pd
 from datetime import date
+
+import streamlit as st
+import pandas as pd
 from fpdf import FPDF
 import arabic_reshaper
 from bidi.algorithm import get_display
-import os
 
 
 # =========================================================
@@ -19,10 +20,36 @@ st.set_page_config(
 
 
 # =========================================================
+# FILE PATHS
+# =========================================================
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+LOGO_PATH = os.path.join(
+    BASE_DIR,
+    "ETB_Real_Estate_Development.png"
+)
+
+FONT_REGULAR = os.path.join(
+    BASE_DIR,
+    "Amiri-Regular.ttf"
+)
+
+FONT_BOLD = os.path.join(
+    BASE_DIR,
+    "Amiri-Bold.ttf"
+)
+
+
+# =========================================================
 # DATABASE
 # =========================================================
 
-conn = sqlite3.connect("company.db", check_same_thread=False)
+conn = sqlite3.connect(
+    os.path.join(BASE_DIR, "company.db"),
+    check_same_thread=False
+)
+
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -41,41 +68,52 @@ conn.commit()
 
 
 # =========================================================
-# LOGO
-# =========================================================
-
-LOGO_PATH = "ETB_Real_Estate_Development.png"
-
-
-# =========================================================
-# ARABIC PDF SUPPORT
+# ARABIC SUPPORT
 # =========================================================
 
 def pdf_arabic(text):
+    """Prepare Arabic text for display in PDF."""
+    if text is None:
+        return ""
+
     text = str(text)
-    reshaped = arabic_reshaper.reshape(text)
-    return get_display(reshaped)
+
+    return get_display(
+        arabic_reshaper.reshape(text)
+    )
 
 
-def get_pdf_font():
+# =========================================================
+# PDF FONT CHECK
+# =========================================================
 
-    fonts = [
-        "C:/Windows/Fonts/arial.ttf",
-        "C:/Windows/Fonts/tahoma.ttf"
-    ]
+def check_pdf_fonts():
+    missing = []
 
-    for font in fonts:
-        if os.path.exists(font):
-            return font
+    if not os.path.isfile(FONT_REGULAR):
+        missing.append("Amiri-Regular.ttf")
 
-    return None
+    if not os.path.isfile(FONT_BOLD):
+        missing.append("Amiri-Bold.ttf")
+
+    if missing:
+        raise FileNotFoundError(
+‎            "ملفات الخطوط التالية غير موجودة بجوار sitetoto.py: "
+            + ", ".join(missing)
+        )
 
 
 # =========================================================
 # CREATE PDF
 # =========================================================
 
-def create_pdf(material_name, data, report_title, month_text=None):
+def create_pdf(
+    material_name,
+    data,
+    report_title,
+    month_text=None
+):
+    check_pdf_fonts()
 
     pdf = FPDF(
         orientation="P",
@@ -83,43 +121,32 @@ def create_pdf(material_name, data, report_title, month_text=None):
         format="A4"
     )
 
+    pdf.set_margins(10, 10, 10)
     pdf.set_auto_page_break(
         auto=True,
         margin=15
     )
 
+    # Add Arabic fonts
+    pdf.add_font(
+        "Amiri",
+        "",
+        FONT_REGULAR
+    )
+
+    pdf.add_font(
+        "Amiri",
+        "B",
+        FONT_BOLD
+    )
+
     pdf.add_page()
-
-    # -----------------------------------------------------
-    # FONT
-    # -----------------------------------------------------
-
-    font_path = get_pdf_font()
-
-    if font_path:
-        pdf.add_font(
-            "Arabic",
-            "",
-            font_path
-        )
-        pdf.set_font(
-            "Arabic",
-            "",
-            11
-        )
-    else:
-        pdf.set_font(
-            "Arial",
-            "",
-            11
-        )
 
     # -----------------------------------------------------
     # LOGO
     # -----------------------------------------------------
 
-    if os.path.exists(LOGO_PATH):
-
+    if os.path.isfile(LOGO_PATH):
         pdf.image(
             LOGO_PATH,
             x=10,
@@ -132,18 +159,12 @@ def create_pdf(material_name, data, report_title, month_text=None):
     # -----------------------------------------------------
 
     pdf.set_y(10)
-
-    if font_path:
-        pdf.set_font(
-            "Arabic",
-            "",
-            15
-        )
+    pdf.set_font("Amiri", "B", 15)
 
     pdf.cell(
         0,
         8,
-        pdf_arabic("ETB REAL ESTATE DEVELOPMENT"),
+        "ETB REAL ESTATE DEVELOPMENT",
         align="C"
     )
 
@@ -153,12 +174,7 @@ def create_pdf(material_name, data, report_title, month_text=None):
     # REPORT TITLE
     # -----------------------------------------------------
 
-    if font_path:
-        pdf.set_font(
-            "Arabic",
-            "",
-            14
-        )
+    pdf.set_font("Amiri", "B", 14)
 
     pdf.cell(
         0,
@@ -169,20 +185,14 @@ def create_pdf(material_name, data, report_title, month_text=None):
         align="C"
     )
 
-    pdf.ln(8)
+    pdf.ln(9)
 
     # -----------------------------------------------------
     # MONTH
     # -----------------------------------------------------
 
     if month_text:
-
-        if font_path:
-            pdf.set_font(
-                "Arabic",
-                "",
-                10
-            )
+        pdf.set_font("Amiri", "", 11)
 
         pdf.cell(
             0,
@@ -193,55 +203,29 @@ def create_pdf(material_name, data, report_title, month_text=None):
             align="C"
         )
 
-        pdf.ln(6)
+        pdf.ln(8)
 
     # -----------------------------------------------------
-    # TABLE
+    # TABLE HEADERS
     # -----------------------------------------------------
 
-    if font_path:
-        pdf.set_font(
-            "Arabic",
-            "",
-            9
-        )
-
-    # A4 width = 210
-    # margins = 10 + 10
-    # available = 190
-
-    col_widths = [
-        32,  # التاريخ
-        60,  # الصنف
-        25,  # الكمية
-        32,  # السعر
-        41   # الإجمالي
-    ]
+    col_widths = [32, 60, 25, 32, 41]
 
     headers = [
-        "التاريخ",
-        "الصنف",
-        "الكمية",
-        "السعر",
-        "الإجمالي"
+‎        "التاريخ",
+‎        "الصنف",
+‎        "الكمية",
+‎        "السعر",
+‎        "الإجمالي"
     ]
 
-    # Header
+    pdf.set_font("Amiri", "B", 10)
+    pdf.set_fill_color(230, 230, 230)
 
-    pdf.set_fill_color(
-        230,
-        230,
-        230
-    )
-
-    for header, width in zip(
-        headers,
-        col_widths
-    ):
-
+    for header, width in zip(headers, col_widths):
         pdf.cell(
             width,
-            9,
+            10,
             pdf_arabic(header),
             border=1,
             align="C",
@@ -254,78 +238,44 @@ def create_pdf(material_name, data, report_title, month_text=None):
     # TABLE DATA
     # -----------------------------------------------------
 
-    total_all = 0
+    total_all = 0.0
+    operation_count = 0
+
+    pdf.set_font("Amiri", "", 9)
 
     for _, row in data.iterrows():
 
-        transaction_date = row.get(
-            "التاريخ",
-            ""
-        )
-
-        item = row.get(
-            "الصنف",
-            ""
-        )
-
-        quantity = row.get(
-            "الكمية",
-            0
-        )
-
-        price = row.get(
-            "السعر",
-            0
-        )
-
-        total = row.get(
-            "الإجمالي",
-            0
-        )
-
-        # Date
+        transaction_date = row.get("التاريخ", "")
+        item = row.get("الصنف", "")
 
         if pd.isna(transaction_date):
-
             transaction_date = ""
-
         else:
-
-            transaction_date = str(
-                transaction_date
-            )
-
-        # Item
+            transaction_date = str(transaction_date)
 
         if pd.isna(item):
-
             item = ""
-
         else:
-
             item = str(item)
 
-        # Numbers
+        try:
+            quantity = float(row.get("الكمية", 0) or 0)
+        except (TypeError, ValueError):
+            quantity = 0.0
 
         try:
-            quantity = float(quantity)
-        except:
-            quantity = 0
-
-        try:
-            price = float(price)
-        except:
-            price = 0
+            price = float(row.get("السعر", 0) or 0)
+        except (TypeError, ValueError):
+            price = 0.0
 
         total = quantity * price
 
         total_all += total
-
-        # Row
+        operation_count += 1
 
         pdf.cell(
             col_widths[0],
-            8,
+            9,
             pdf_arabic(transaction_date),
             border=1,
             align="C"
@@ -333,7 +283,7 @@ def create_pdf(material_name, data, report_title, month_text=None):
 
         pdf.cell(
             col_widths[1],
-            8,
+            9,
             pdf_arabic(item),
             border=1,
             align="C"
@@ -341,7 +291,7 @@ def create_pdf(material_name, data, report_title, month_text=None):
 
         pdf.cell(
             col_widths[2],
-            8,
+            9,
             f"{quantity:g}",
             border=1,
             align="C"
@@ -349,7 +299,7 @@ def create_pdf(material_name, data, report_title, month_text=None):
 
         pdf.cell(
             col_widths[3],
-            8,
+            9,
             f"{price:.2f}",
             border=1,
             align="C"
@@ -357,7 +307,7 @@ def create_pdf(material_name, data, report_title, month_text=None):
 
         pdf.cell(
             col_widths[4],
-            8,
+            9,
             f"{total:.2f}",
             border=1,
             align="C"
@@ -370,48 +320,38 @@ def create_pdf(material_name, data, report_title, month_text=None):
     # -----------------------------------------------------
 
     pdf.ln(5)
-
-    if font_path:
-        pdf.set_font(
-            "Arabic",
-            "",
-            12
-        )
+    pdf.set_font("Amiri", "B", 12)
 
     pdf.cell(
         0,
-        8,
+        9,
         pdf_arabic(
             f"إجمالي العمليات: {total_all:.2f}"
         ),
         align="R"
     )
 
-    pdf.ln(7)
+    pdf.ln(9)
 
     # -----------------------------------------------------
-    # NUMBER OF OPERATIONS
+    # OPERATION COUNT
     # -----------------------------------------------------
 
-    if font_path:
-        pdf.set_font(
-            "Arabic",
-            "",
-            10
-        )
+    pdf.set_font("Amiri", "", 11)
 
     pdf.cell(
         0,
-        7,
+        8,
         pdf_arabic(
-            f"عدد العمليات: {len(data)}"
+            f"عدد العمليات: {operation_count}"
         ),
         align="R"
     )
 
-    return bytes(
-        pdf.output()
-    )
+    # Return actual PDF bytes
+    output = pdf.output()
+
+    return bytes(output)
 
 
 # =========================================================
@@ -419,19 +359,45 @@ def create_pdf(material_name, data, report_title, month_text=None):
 # =========================================================
 
 month_names = {
-    "01": "يناير",
-    "02": "فبراير",
-    "03": "مارس",
-    "04": "أبريل",
-    "05": "مايو",
-    "06": "يونيو",
-    "07": "يوليو",
-    "08": "أغسطس",
-    "09": "سبتمبر",
-    "10": "أكتوبر",
-    "11": "نوفمبر",
-    "12": "ديسمبر"
+‎    "01": "يناير",
+‎    "02": "فبراير",
+‎    "03": "مارس",
+‎    "04": "أبريل",
+‎    "05": "مايو",
+‎    "06": "يونيو",
+‎    "07": "يوليو",
+‎    "08": "أغسطس",
+‎    "09": "سبتمبر",
+‎    "10": "أكتوبر",
+‎    "11": "نوفمبر",
+‎    "12": "ديسمبر"
 }
+
+
+def format_month(month):
+    year = month[:4]
+    month_number = month[5:7]
+
+    arabic_month = month_names.get(
+        month_number,
+        month_number
+    )
+
+    return f"{arabic_month} {year}"
+
+
+# =========================================================
+# EMPTY INPUT TABLE
+# =========================================================
+
+def empty_input_table():
+    return pd.DataFrame({
+‎        "التاريخ": [date.today()],
+‎        "الصنف": [""],
+‎        "الكمية": [0.0],
+‎        "السعر": [0.0],
+‎        "الإجمالي": [0.0]
+    })
 
 
 # =========================================================
@@ -440,81 +406,61 @@ month_names = {
 
 def material_page(material_name):
 
-    st.title(
-        f"حسابات {material_name}"
-    )
+    st.title(f"حسابات {material_name}")
 
-    # =====================================================
+    input_key = f"input_table_{material_name}"
+    version_key = f"input_version_{material_name}"
+
+    # -----------------------------------------------------
     # INPUT TABLE
-    # =====================================================
+    # -----------------------------------------------------
 
-    st.subheader(
-        "إضافة العمليات"
-    )
-
-    input_key = (
-        f"input_table_{material_name}"
-    )
-
-    # First time only
+    st.subheader("إضافة العمليات")
 
     if input_key not in st.session_state:
+        st.session_state[input_key] = empty_input_table()
 
-        st.session_state[input_key] = pd.DataFrame({
-            "التاريخ": [date.today()],
-            "الصنف": [""],
-            "الكمية": [0.0],
-            "السعر": [0.0],
-            "الإجمالي": [0.0]
-        })
+    if version_key not in st.session_state:
+        st.session_state[version_key] = 0
 
-    # -----------------------------------------------------
-    # INPUT EDITOR
-    # -----------------------------------------------------
+    editor_key = (
+        f"editor_{material_name}_"
+        f"{st.session_state[version_key]}"
+    )
 
     edited_df = st.data_editor(
         st.session_state[input_key],
         num_rows="dynamic",
         use_container_width=True,
-        key=f"editor_{material_name}",
+        key=editor_key,
         column_config={
-
-            "التاريخ": st.column_config.DateColumn(
-                "التاريخ",
+‎            "التاريخ": st.column_config.DateColumn(
+‎                "التاريخ",
                 format="DD/MM/YYYY"
             ),
-
-            "الصنف": st.column_config.TextColumn(
-                "الصنف"
+‎            "الصنف": st.column_config.TextColumn(
+‎                "الصنف"
             ),
-
-            "الكمية": st.column_config.NumberColumn(
-                "الكمية",
+‎            "الكمية": st.column_config.NumberColumn(
+‎                "الكمية",
                 min_value=0.0,
                 step=1.0
             ),
-
-            "السعر": st.column_config.NumberColumn(
-                "السعر",
+‎            "السعر": st.column_config.NumberColumn(
+‎                "السعر",
                 min_value=0.0,
                 step=0.01
             ),
-
-            "الإجمالي": st.column_config.NumberColumn(
-                "الإجمالي",
+‎            "الإجمالي": st.column_config.NumberColumn(
+‎                "الإجمالي",
                 disabled=True,
                 format="%.2f"
             )
         }
     )
 
-    # Save current table to session
-
-    st.session_state[input_key] = edited_df.copy()
-
-    # -----------------------------------------------------
-    # CALCULATE TOTALS
-    # -----------------------------------------------------
+    # Work on a copy
+    edited_df = edited_df.copy()
 
     edited_df["الكمية"] = pd.to_numeric(
         edited_df["الكمية"],
@@ -527,24 +473,23 @@ def material_page(material_name):
     ).fillna(0)
 
     edited_df["الإجمالي"] = (
-        edited_df["الكمية"] *
-        edited_df["السعر"]
+        edited_df["الكمية"] * edited_df["السعر"]
     )
 
-    current_total = edited_df[
-        "الإجمالي"
-    ].sum()
+    st.session_state[input_key] = edited_df.copy()
+
+    current_total = edited_df["الإجمالي"].sum()
 
     st.write(
         f"**إجمالي العمليات الحالية: {current_total:.2f}**"
     )
 
-    # =====================================================
+    # -----------------------------------------------------
     # SAVE ALL
-    # =====================================================
+    # -----------------------------------------------------
 
     if st.button(
-        "حفظ الكل",
+‎        "حفظ الكل",
         type="primary",
         key=f"save_{material_name}"
     ):
@@ -553,32 +498,24 @@ def material_page(material_name):
 
         for _, row in edited_df.iterrows():
 
-            item = str(
-                row["الصنف"]
-            ).strip()
+            item = str(row["الصنف"]).strip()
 
-            quantity = float(
-                row["الكمية"]
-            )
+            try:
+                quantity = float(row["الكمية"])
+            except (TypeError, ValueError):
+                quantity = 0.0
 
-            price = float(
-                row["السعر"]
-            )
+            try:
+                price = float(row["السعر"])
+            except (TypeError, ValueError):
+                price = 0.0
 
-            # Skip empty rows
-
-            if item == "":
+            if not item or quantity <= 0:
                 continue
-
-            if quantity <= 0:
-                continue
-
-            # Date
 
             transaction_date = row["التاريخ"]
 
             if pd.isna(transaction_date):
-
                 transaction_date = date.today()
 
             transaction_date = pd.Timestamp(
@@ -589,8 +526,7 @@ def material_page(material_name):
 
             cursor.execute(
                 """
-                INSERT INTO transactions
-                (
+                INSERT INTO transactions (
                     material,
                     transaction_date,
                     item,
@@ -616,40 +552,29 @@ def material_page(material_name):
 
         if rows_saved > 0:
 
+            st.session_state[input_key] = empty_input_table()
+
+            # Change the editor key to reset the visible table
+            st.session_state[version_key] += 1
+
             st.success(
                 f"تم حفظ {rows_saved} عملية بنجاح"
             )
 
-            # Reset input table
-
-            st.session_state[input_key] = pd.DataFrame({
-                "التاريخ": [date.today()],
-                "الصنف": [""],
-                "الكمية": [0.0],
-                "السعر": [0.0],
-                "الإجمالي": [0.0]
-            })
-
             st.rerun()
 
         else:
+            st.warning("مفيش عمليات صحيحة للحفظ")
 
-            st.warning(
-                "مفيش عمليات صحيحة للحفظ"
-            )
-
-    # =====================================================
+    # -----------------------------------------------------
     # CURRENT / UNSAVED PDF
-    # =====================================================
+    # -----------------------------------------------------
 
     st.divider()
-
-    st.subheader(
-        "PDF العمليات الحالية"
-    )
+    st.subheader("PDF العمليات الحالية")
 
     if st.button(
-        "توليد PDF للعمليات الحالية",
+‎        "توليد PDF للعمليات الحالية",
         key=f"current_pdf_{material_name}"
     ):
 
@@ -663,70 +588,47 @@ def material_page(material_name):
         )
 
         current_data = current_data[
-            current_data["الصنف"] != ""
-        ]
-
-        current_data = current_data[
-            current_data["الكمية"] > 0
-        ]
+            (current_data["الصنف"] != "")
+            & (current_data["الكمية"] > 0)
+        ].copy()
 
         if current_data.empty:
-
-            st.warning(
-                "مفيش عمليات حالية لعمل PDF"
-            )
+            st.warning("مفيش عمليات حالية لعمل PDF")
 
         else:
+            try:
+                pdf_data = create_pdf(
+                    material_name,
+                    current_data,
+‎                    "تقرير العمليات الحالية"
+                )
 
-            current_data["الإجمالي"] = (
-                current_data["الكمية"] *
-                current_data["السعر"]
-            )
+                st.session_state[
+                    f"current_pdf_data_{material_name}"
+                ] = pdf_data
 
-            pdf_data = create_pdf(
-                material_name,
-                current_data,
-                "تقرير العمليات الحالية"
-            )
+                st.success("تم إنشاء PDF للعمليات الحالية")
 
-            st.session_state[
-                f"current_pdf_data_{material_name}"
-            ] = pdf_data
+            except Exception as error:
+                st.error(f"حصل خطأ أثناء إنشاء PDF: {error}")
 
-            st.success(
-                "تم إنشاء PDF للعمليات الحالية"
-            )
-
-    # Download current PDF
-
-    current_pdf_key = (
-        f"current_pdf_data_{material_name}"
-    )
+    current_pdf_key = f"current_pdf_data_{material_name}"
 
     if current_pdf_key in st.session_state:
-
         st.download_button(
-            "تحميل PDF للعمليات الحالية",
-            data=st.session_state[
-                current_pdf_key
-            ],
-            file_name=(
-                f"{material_name}_"
-                "العمليات_الحالية.pdf"
-            ),
+‎            "تحميل PDF للعمليات الحالية",
+            data=st.session_state[current_pdf_key],
+            file_name=f"{material_name}_العمليات_الحالية.pdf",
             mime="application/pdf",
             key=f"download_current_{material_name}"
         )
 
-    # =====================================================
-    # SAVED DATA
-    # =====================================================
+    # -----------------------------------------------------
+    # SAVED TRANSACTIONS
+    # -----------------------------------------------------
 
     st.divider()
-
-    st.subheader(
-        "العمليات المحفوظة"
-    )
+    st.subheader("العمليات المحفوظة")
 
     saved_df = pd.read_sql_query(
         """
@@ -745,10 +647,6 @@ def material_page(material_name):
         params=(material_name,)
     )
 
-    # -----------------------------------------------------
-    # SAVED TABLE
-    # -----------------------------------------------------
-
     if not saved_df.empty:
 
         saved_df["مسح"] = False
@@ -759,47 +657,40 @@ def material_page(material_name):
             hide_index=True,
             key=f"saved_editor_{material_name}",
             column_config={
-
                 "id": None,
-
-                "التاريخ": st.column_config.TextColumn(
-                    "التاريخ",
+‎                "التاريخ": st.column_config.TextColumn(
+‎                    "التاريخ",
                     disabled=True
                 ),
-
-                "الصنف": st.column_config.TextColumn(
-                    "الصنف",
+‎                "الصنف": st.column_config.TextColumn(
+‎                    "الصنف",
                     disabled=True
                 ),
-
-                "الكمية": st.column_config.NumberColumn(
-                    "الكمية",
+‎                "الكمية": st.column_config.NumberColumn(
+‎                    "الكمية",
                     disabled=True
                 ),
-
-                "السعر": st.column_config.NumberColumn(
-                    "السعر",
+‎                "السعر": st.column_config.NumberColumn(
+‎                    "السعر",
                     disabled=True
                 ),
-
-                "الإجمالي": st.column_config.NumberColumn(
-                    "الإجمالي",
+‎                "الإجمالي": st.column_config.NumberColumn(
+‎                    "الإجمالي",
                     disabled=True,
                     format="%.2f"
                 ),
-
-                "مسح": st.column_config.CheckboxColumn(
-                    "مسح"
+‎                "مسح": st.column_config.CheckboxColumn(
+‎                    "مسح"
                 )
             }
         )
 
         # -------------------------------------------------
-        # DELETE SELECTED
+        # DELETE SELECTED ONLY
         # -------------------------------------------------
 
         if st.button(
-            "مسح المحدد",
+‎            "مسح المحدد",
             key=f"delete_{material_name}"
         ):
 
@@ -809,22 +700,14 @@ def material_page(material_name):
             ].tolist()
 
             if not selected_ids:
-
-                st.warning(
-                    "اختار عملية واحدة على الأقل"
-                )
+                st.warning("اختار عملية واحدة على الأقل")
 
             else:
-
-                for transaction_id in selected_ids:
-
-                    cursor.execute(
-                        """
-                        DELETE FROM transactions
-                        WHERE id = ?
-                        """,
-                        (int(transaction_id),)
-                    )
+                cursor.executemany(
+                    "DELETE FROM transactions WHERE id = ?",
+                    [(int(transaction_id),)
+                     for transaction_id in selected_ids]
+                )
 
                 conn.commit()
 
@@ -834,37 +717,21 @@ def material_page(material_name):
 
                 st.rerun()
 
-        # -------------------------------------------------
-        # TOTAL SAVED
-        # -------------------------------------------------
-
-        saved_total = saved_df[
-            "الإجمالي"
-        ].sum()
+        saved_total = saved_df["الإجمالي"].sum()
 
         st.write(
             f"**إجمالي كل العمليات المحفوظة: {saved_total:.2f}**"
         )
 
     else:
+        st.info("لا توجد عمليات محفوظة حتى الآن")
 
-        st.info(
-            "لا توجد عمليات محفوظة حتى الآن"
-        )
-
-    # =====================================================
+    # -----------------------------------------------------
     # SAVED PDF
-    # =====================================================
+    # -----------------------------------------------------
 
     st.divider()
-
-    st.subheader(
-        "PDF العمليات المحفوظة"
-    )
-
-    # -----------------------------------------------------
-    # GET MONTHS
-    # -----------------------------------------------------
+    st.subheader("PDF العمليات المحفوظة")
 
     months_df = pd.read_sql_query(
         """
@@ -886,31 +753,15 @@ def material_page(material_name):
 
     if available_months:
 
-        def format_month(month):
-
-            year = month[:4]
-            month_number = month[5:7]
-
-            arabic_month = month_names.get(
-                month_number,
-                month_number
-            )
-
-            return f"{arabic_month} {year}"
-
         selected_month = st.selectbox(
-            "اختار الشهر",
+‎            "اختار الشهر",
             available_months,
             format_func=format_month,
             key=f"month_{material_name}"
         )
 
-        # -------------------------------------------------
-        # CREATE SAVED PDF
-        # -------------------------------------------------
-
         if st.button(
-            "توليد PDF للمحفوظات",
+‎            "توليد PDF للمحفوظات",
             key=f"saved_pdf_{material_name}"
         ):
 
@@ -924,87 +775,75 @@ def material_page(material_name):
                     total AS الإجمالي
                 FROM transactions
                 WHERE material = ?
-                AND substr(transaction_date, 1, 7) = ?
-                ORDER BY transaction_date ASC, id ASC
+                  AND substr(transaction_date, 1, 7) = ?
+                ORDER BY transaction_date ASC
                 """,
                 conn,
-                params=(
-                    material_name,
-                    selected_month
-                )
+                params=(material_name, selected_month)
             )
 
             if month_data.empty:
-
-                st.warning(
-                    "مفيش عمليات في الشهر ده"
-                )
+                st.warning("مفيش عمليات في الشهر ده")
 
             else:
+                try:
+                    month_text = format_month(selected_month)
 
-                month_text = format_month(
-                    selected_month
-                )
+                    saved_pdf = create_pdf(
+                        material_name,
+                        month_data,
+‎                        "تقرير العمليات المحفوظة",
+                        month_text
+                    )
 
-                saved_pdf = create_pdf(
-                    material_name,
-                    month_data,
-                    "تقرير العمليات المحفوظة",
-                    month_text
-                )
+                    pdf_state_key = (
+                        f"saved_pdf_data_{material_name}"
+                    )
 
-                st.session_state[
-                    f"saved_pdf_data_{material_name}"
-                ] = saved_pdf
+                    st.session_state[pdf_state_key] = saved_pdf
 
-                st.success(
-                    "تم إنشاء PDF للمحفوظات"
-                )
+                    # Remember which month this PDF belongs to
+                    st.session_state[
+                        f"saved_pdf_month_{material_name}"
+                    ] = selected_month
 
-        # -------------------------------------------------
-        # DOWNLOAD SAVED PDF
-        # -------------------------------------------------
+                    st.success("تم إنشاء PDF للمحفوظات")
 
-        saved_pdf_key = (
-            f"saved_pdf_data_{material_name}"
-        )
+                except Exception as error:
+                    st.error(
+                        f"حصل خطأ أثناء إنشاء PDF: {error}"
+                    )
 
-        if saved_pdf_key in st.session_state:
+        saved_pdf_key = f"saved_pdf_data_{material_name}"
+        saved_month_key = f"saved_pdf_month_{material_name}"
 
+        # Only offer the PDF if it matches the selected month
+        if (
+            saved_pdf_key in st.session_state
+            and st.session_state.get(saved_month_key) == selected_month
+        ):
             st.download_button(
-                "تحميل PDF للمحفوظات",
-                data=st.session_state[
-                    saved_pdf_key
-                ],
-                file_name=(
-                    f"{material_name}_"
-                    f"{selected_month}.pdf"
-                ),
+‎                "تحميل PDF للمحفوظات",
+                data=st.session_state[saved_pdf_key],
+                file_name=f"{material_name}_{selected_month}.pdf",
                 mime="application/pdf",
                 key=f"download_saved_{material_name}"
             )
 
     else:
+        st.info("مفيش بيانات محفوظة لعمل PDF")
 
-        st.info(
-            "مفيش بيانات محفوظة لعمل PDF"
-        )
-
-    # =====================================================
-    # BACK
-    # =====================================================
+    # -----------------------------------------------------
+    # BACK BUTTON
+    # -----------------------------------------------------
 
     st.divider()
 
     if st.button(
-        "رجوع",
+‎        "رجوع",
         key=f"back_{material_name}"
     ):
-
-        st.session_state[
-            "selected_material"
-        ] = None
-
+        st.session_state["selected_material"] = None
         st.rerun()
 
 
@@ -1013,31 +852,22 @@ def material_page(material_name):
 # =========================================================
 
 if "selected_material" not in st.session_state:
-
-    st.session_state[
-        "selected_material"
-    ] = None
+    st.session_state["selected_material"] = None
 
 
-if st.session_state[
-    "selected_material"
-] is None:
+if st.session_state["selected_material"] is None:
 
-    st.title(
-        "ETB REAL ESTATE DEVELOPMENT"
-    )
+    st.title("ETB REAL ESTATE DEVELOPMENT")
 
-    st.write(
-        "اختار نوع الخامة"
-    )
+    st.write("اختار نوع الخامة")
 
     materials = [
-        "خشب",
-        "حديد",
-        "أسمنت",
-        "دهانات",
-        "كهرباء",
-        "سباكة"
+‎        "خشب",
+‎        "حديد",
+‎        "أسمنت",
+‎        "دهانات",
+‎        "كهرباء",
+‎        "سباكة"
     ]
 
     for material in materials:
@@ -1047,26 +877,13 @@ if st.session_state[
             use_container_width=True,
             key=f"material_{material}"
         ):
-
-            st.session_state[
-                "selected_material"
-            ] = material
-
+            st.session_state["selected_material"] = material
             st.rerun()
 
-
-# =========================================================
-# MATERIAL PAGE
-# =========================================================
-
 else:
-
     material_page(
-        st.session_state[
-            "selected_material"
-        ]
+        st.session_state["selected_material"]
     )
-
 
 
 
